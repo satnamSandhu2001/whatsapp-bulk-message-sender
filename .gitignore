@@ -1,3 +1,7 @@
+.wwebjs_cache
+
+img*
+
 # Logs
 logs
 *.log
