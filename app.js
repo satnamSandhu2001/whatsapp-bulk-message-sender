@@ -124,8 +124,8 @@ function random_ms(min, max) {
 async function deploy_all() {
   createFile(ReportFile);
 
-  // const message = await fs.readFileSync(msgFile, { encoding: 'utf-8' });
-  var media_img = await MessageMedia.fromFilePath(mediaImgPath);
+  const message = fs.readFileSync(msgFile, { encoding: 'utf-8' });
+  var media_img = MessageMedia.fromFilePath(mediaImgPath);
 
   for (let contact of contacts) {
     if (counter.total !== 0 && counter.total % 50 === 0) {
@@ -140,7 +140,7 @@ async function deploy_all() {
     const isRegistered = await client.isRegisteredUser(final_number);
     if (isRegistered) {
       try {
-        await client.sendMessage(final_number, media_img);
+        await client.sendMessage(final_number, media_img, { caption: message });
         console.log(`Sr No. : ${counter.total} ${contact} Sent`);
         counter.success++;
       } catch (error) {
