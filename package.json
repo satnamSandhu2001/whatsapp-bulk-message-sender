@@ -1,12 +1,12 @@
 {
-  "name": "Whatsapp",
+  "name": "whatsapp-bulk-message-sender",
   "version": "1.0.0",
-  "description": "Whatsapp by Yash Thaker",
+  "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js"
   },
-  "author": "Yash Thaker",
+  "author": "",
   "license": "MIT",
   "dependencies": {
     "csv-parser": "^3.0.0",
