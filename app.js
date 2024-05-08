@@ -1,13 +1,14 @@
-const { Client, NoAuth, MessageMedia } = require('whatsapp-web.js');
+const { Client, MessageMedia, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const csv = require('csv-parser');
+const startTimer = require('./timer');
 
 const contacts = [];
 
 const contactsFile = 'contacts.csv';
 const msgFile = 'message.txt';
-const mediaImgPath = './img1.jpeg';
+// const mediaImgPath = './img1.jpeg';
 
 fs.createReadStream(contactsFile)
   .pipe(csv())
@@ -24,21 +25,17 @@ fs.createReadStream(contactsFile)
 
 let counter = { fails: 0, success: 0, total: 0 };
 
-/*
-const SESSION_FILE_PATH = './whatsapp-session.json';
-let sessionCfg;
-if (fs.existsSync(SESSION_FILE_PATH)) {
-    sessionCfg = require(SESSION_FILE_PATH);
-}
-
-const client = new Client({
-    session: sessionCfg
-});
-*/
-
 // equivalent to
 const client = new Client({
-  authStrategy: new NoAuth(),
+  puppeteer: {
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  },
+  authStrategy: new LocalAuth({ dataPath: './sessions' }),
+  webVersionCache: {
+    type: 'remote',
+    remotePath:
+      'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+  },
 });
 
 client.initialize();
@@ -47,24 +44,19 @@ client.on('qr', (qr) => {
   qrcode.generate(qr, { small: true });
 });
 
-/*
-client.on('authenticated', (session) => {
-    console.log('AUTHENTICATED', session);
-    sessionCfg = session;
-    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
-        if (err) {
-            console.error(err);
-        }
-    });
-});
-*/
-
 client.on('auth_failure', (msg) => {
   // Fired if session restore was unsuccessfull
   console.error('AUTHENTICATION FAILURE', msg);
 });
 
-client.on('ready', () => {
+// on inputing Ctrl+C exit process and destroy client
+process.on('SIGINT', async () => {
+  console.log('\nShutting down...');
+  await destroyClient();
+  process.exit(0);
+});
+
+client.on('ready', (se) => {
   console.log('Client is ready!');
   deploy_all();
 });
@@ -125,11 +117,12 @@ async function deploy_all() {
   createFile(ReportFile);
 
   const message = fs.readFileSync(msgFile, { encoding: 'utf-8' });
-  var media_img = MessageMedia.fromFilePath(mediaImgPath);
+  // var media_img = MessageMedia.fromFilePath(mediaImgPath);
 
   for (let contact of contacts) {
     if (counter.total !== 0 && counter.total % 50 === 0) {
       console.log('Paused for 10 minutes...');
+      startTimer(10 * 60);
       await sleep(10 * 60 * 1000);
     }
     counter.total++;
@@ -140,7 +133,8 @@ async function deploy_all() {
     const isRegistered = await client.isRegisteredUser(final_number);
     if (isRegistered) {
       try {
-        await client.sendMessage(final_number, media_img, { caption: message });
+        await client.sendMessage(final_number, message, { linkPreview: true });
+        // await client.sendMessage(final_number, media_img, { caption: message });
         console.log(`Sr No. : ${counter.total} ${contact} Sent`);
         counter.success++;
       } catch (error) {
@@ -149,11 +143,6 @@ async function deploy_all() {
         counter.fails++;
         console.log(`Sr No. : ${counter.total} ${contact} Failed`);
       }
-      /*
-            deleteChat(final_number)
-            .then((res) => console.log(res)) // contains ["successfuly deleted"]
-            .catch((err) => console.log(err))// contains ["something went wrong", "do not have chat history"]
-            */
     } else {
       writeReport(`  ${contact}`);
       counter.fails++;
@@ -171,24 +160,6 @@ async function deploy_all() {
       counter.success
     },\n  Failed: ${counter.fails}`
   );
-  destroyClient();
-  //   process.exit(0);
+  await destroyClient();
+  process.exit(0);
 }
-
-// async function deleteChat(phoneNumber) {
-//     return new Promise((resolve, reject) => {
-//         client.getChatById(phoneNumber).then((chat) => {
-//             // console.log("Chat information = ", chat)
-//             chat.delete().then((deleteRes) => {
-//                 if(deleteRes)
-//                     resolve(`successfuly deleted`)
-//                 else
-//                     reject("something went wrong")
-//             })
-//         }).catch((err) => {
-//             if(err.message.includes("Cannot read property 'serialize' of undefined"))
-//                 reject(`do not have chat history`)
-//             // can handle other error messages...
-//         })
-//     })
-// }
